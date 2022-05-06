@@ -26,7 +26,7 @@ class HierMPNDecoder(nn.Module):
 
         self.hmpn = IncHierMPNEncoder(vocab, avocab, rnn_type, embed_size, hidden_size, depthT, depthG, dropout)
         self.rnn_cell = self.hmpn.tree_encoder.rnn
-        self.E_assm = self.hmpn.E_i 
+        self.E_assm = self.hmpn.E_i
         self.E_order = torch.eye(MolGraph.MAX_POS).cuda()
 
         self.topoNN = nn.Sequential(
@@ -65,7 +65,7 @@ class HierMPNDecoder(nn.Module):
         self.cls_loss = nn.CrossEntropyLoss(size_average=False)
         self.icls_loss = nn.CrossEntropyLoss(size_average=False)
         self.assm_loss = nn.CrossEntropyLoss(size_average=False)
-        
+
     def apply_tree_mask(self, tensors, cur, prev):
         fnode, fmess, agraph, bgraph, cgraph, scope = tensors
         agraph = agraph * index_select_ND(cur.emask, 0, agraph)
@@ -106,7 +106,7 @@ class HierMPNDecoder(nn.Module):
             assert agraph[root,-1].item() == 0
             agraph[root,-1] = num_mess + i
             for v in tree_batch.successors(root):
-                mess_idx = tree_batch[root][v]['mess_idx'] 
+                mess_idx = tree_batch[root][v]['mess_idx']
                 assert bgraph[mess_idx,-1].item() == 0
                 bgraph[mess_idx,-1] = num_mess + i
 
@@ -178,7 +178,7 @@ class HierMPNDecoder(nn.Module):
             vmask = self.itensor.new_zeros(graph_tensors[0].size(0)),
             emask = self.itensor.new_zeros(graph_tensors[1].size(0))
         )
-        
+
         all_topo_preds, all_cls_preds, all_assm_preds = [], [], []
         new_atoms = []
         tree_scope = tree_tensors[-1]
@@ -206,7 +206,7 @@ class HierMPNDecoder(nn.Module):
                     mess_idx = tree_batch[xid][yid]['mess_idx']
                     subtree[1].append(mess_idx)
 
-            subtree = htree.emask.new_tensor(subtree[0]), htree.emask.new_tensor(subtree[1]) 
+            subtree = htree.emask.new_tensor(subtree[0]), htree.emask.new_tensor(subtree[1])
             htree.emask.scatter_(0, subtree[1], 1)
             hinter.emask.scatter_(0, subtree[1], 1)
 
@@ -230,7 +230,7 @@ class HierMPNDecoder(nn.Module):
                 mess_idx = tree_batch[xid][yid]['mess_idx']
                 hmess = self.rnn_cell.get_hidden_state(htree.mess)
                 all_cls_preds.append( (hmess[mess_idx], i, clab, ilab) ) #cluster prediction using message
-                
+
                 inter_label = tree_batch.nodes[yid]['inter_label']
                 inter_label = [ (pos, self.vocab[(cls, icls)][1]) for pos,icls in inter_label ]
                 inter_size = self.vocab.get_inter_size(ilab)
@@ -267,8 +267,8 @@ class HierMPNDecoder(nn.Module):
             assm_loss = self.assm_loss(assm_scores, assm_labels)
             assm_acc = get_accuracy_sym(assm_scores, assm_labels)
         else:
-            assm_loss, assm_acc = 0, 1
-        
+            assm_loss, assm_acc = torch.tensor(0), torch.tensor(1)
+
         loss = (topo_loss + cls_loss + assm_loss) / batch_size
         return loss, cls_acc, icls_acc, topo_acc, assm_acc
 
@@ -303,17 +303,17 @@ class HierMPNDecoder(nn.Module):
         icls_scores = icls_scores + self.vocab.get_mask(root_cls)
         root_cls, root_icls = root_cls.tolist(), icls_scores.max(dim=-1)[1].tolist()
 
-        super_root = tree_batch.add_node() 
+        super_root = tree_batch.add_node()
         for bid in range(batch_size):
             clab, ilab = root_cls[bid], root_icls[bid]
             root_idx = tree_batch.add_node( batch_idx.new_tensor([clab, ilab]) )
-            tree_batch.add_edge(super_root, root_idx) 
+            tree_batch.add_edge(super_root, root_idx)
             stack[bid].append(root_idx)
 
             root_smiles = self.vocab.get_ismiles(ilab)
             new_atoms, new_bonds, attached = graph_batch.add_mol(bid, root_smiles, [], 0)
             tree_batch.register_cgraph(root_idx, new_atoms, new_bonds, attached)
-        
+
         #invariance: tree_tensors is equal to inter_tensors (but inter_tensor's init_vec is 0)
         tree_tensors = tree_batch.get_tensors()
         graph_tensors = graph_batch.get_tensors()
@@ -323,7 +323,7 @@ class HierMPNDecoder(nn.Module):
         hgraph = HTuple( mess = self.rnn_cell.get_init_state(graph_tensors[1]) )
         h = self.rnn_cell.get_hidden_state(htree.mess)
         h[1 : batch_size + 1] = init_vecs #wiring root (only for tree, not inter)
-        
+
         for t in range(max_decode_step):
             batch_list = [ bid for bid in range(batch_size) if len(stack[bid]) > 0 ]
             if len(batch_list) == 0: break
@@ -348,7 +348,7 @@ class HierMPNDecoder(nn.Module):
                     expand_list.append( (len(new_mess), bid) )
                     new_node = tree_batch.add_node() #new node label is yet to be predicted
                     edge_feature = batch_idx.new_tensor( [stack[bid][-1], new_node, 0] ) #parent to child is 0
-                    new_edge = tree_batch.add_edge(stack[bid][-1], new_node, edge_feature) 
+                    new_edge = tree_batch.add_edge(stack[bid][-1], new_node, edge_feature)
                     stack[bid].append(new_node)
                     new_mess.append(new_edge)
                 else:
@@ -414,13 +414,13 @@ class HierMPNDecoder(nn.Module):
 
                 if not success: #force backtrack
                     child = stack[bid].pop() #pop the dummy new_node which can't be added
-                    nth_child = tree_batch.graph.in_degree(stack[bid][-1]) 
+                    nth_child = tree_batch.graph.in_degree(stack[bid][-1])
                     edge_feature = batch_idx.new_tensor( [child, stack[bid][-1], nth_child] )
                     new_edge = tree_batch.add_edge(child, stack[bid][-1], edge_feature)
 
-                    child = stack[bid].pop() 
+                    child = stack[bid].pop()
                     if len(stack[bid]) > 0:
-                        nth_child = tree_batch.graph.in_degree(stack[bid][-1]) 
+                        nth_child = tree_batch.graph.in_degree(stack[bid][-1])
                         edge_feature = batch_idx.new_tensor( [child, stack[bid][-1], nth_child] )
                         new_edge = tree_batch.add_edge(child, stack[bid][-1], edge_feature)
 

@@ -1,123 +1,106 @@
-import imp
 import sys
 import os
-import numpy as np
-import torch
 import pandas as pd
 
-#from chemprop.data import get_data, get_data_from_smiles, MoleculeDataLoader,MoleculeDataset
-from chemprop.utils import load_args, load_checkpoint, load_scalers, makedirs, timeit
+from chemprop.data import get_data, MoleculeDataLoader
+from chemprop.utils import load_checkpoint, load_scalers
 from chemprop.train.predict import predict
 
 from rdkit.Chem import RDConfig
-from rdkit import Chem
-from rdkit import DataStructs
 
-sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score')) 
-import sascorer
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 
 from g2g_optimization.train.metrics import *
 
-def evaluate_chemprop(decoded_path,fold_path,chemprop_path):
+def evaluate_chemprop(decoded_path,fold_path):
+    df: pd.DataFrame = pd.read_csv(decoded_path,header=None,delimiter=' ')
+    df = df.rename(columns={0:'Mol1',1:'Mol2'})
+    decoded_path = decoded_path + ".proc.csv"
+    df.to_csv(decoded_path, index=False)
 
-    data = pd.read_csv(decoded_path,header=None,delimiter=' ')
-#    data = data.rename(columns={0:'Mol1',1:'Mol2'})
+    device = torch.device('cuda')
+    model_path = os.path.join(fold_path, "model.pt")
+    model = load_checkpoint(model_path, device=device)
+    scaler, *_ = load_scalers(model_path)
 
-#     device = torch.device('cuda')
-#     model = load_checkpoint(fold_path,device=device)
-#     scaler, features_scaler = load_scalers(fold_path)
+    print('Predicting Mol1')
 
-#     smiles1 = list(data['Mol1'])
-#     print('Loading data')
-#     full_data = get_data_from_smiles(
-#         smiles=smiles1,
-#         skip_invalid_smiles=False,
-#         features_generator=None
-#     )
+    preds1 = predict(
+                model=model,
+                data_loader=MoleculeDataLoader(
+                    dataset=get_data(
+                        decoded_path, smiles_columns=["Mol1"], target_columns=[])),
+                scaler=scaler)
 
-#     test_data = MoleculeDataset(full_data)
-#     test_data_loader=MoleculeDataLoader(dataset=test_data)
+    df['Target1'] = np.array(preds1).reshape(-1)
 
-#     model_preds1 = predict(
-#                 model=model,
-#                 data_loader=test_data_loader,
-#                 scaler=scaler)
+    print('Predicting Mol2')
+    preds2 = predict(
+                model=model,
+                data_loader=MoleculeDataLoader(
+                    dataset=get_data(
+                        decoded_path, smiles_columns=["Mol2"], target_columns=[])),
+                scaler=scaler)
 
-#     smiles2 = list(data['Mol2'])
-#     print('Loading data')
-#     full_data = get_data_from_smiles(
-#         smiles=smiles2,
-#         skip_invalid_smiles=False,
-#         features_generator=None
-#     )
+    df['Target2'] = np.array(preds2).reshape(-1)
 
-#     test_data = MoleculeDataset(full_data)
-#     test_data_loader=MoleculeDataLoader(dataset=test_data)
+    statistics = sum_statistics(df)
+    return statistics,df
 
-#     model_preds2 = predict(
-#                 model=model,
-#                 data_loader=test_data_loader,
-#                 scaler=scaler)
-    
-    temp_folder='tmp'
-    if not os.path.isdir(temp_folder):
-        os.mkdir(temp_folder)
-    
-    data[0].to_csv(os.path.join(temp_folder,'col1.csv'),index=False)
-    data[1].to_csv(os.path.join(temp_folder,'col2.csv'),index=False)
-    
-    os.system('python '+os.path.join(chemprop_path,'predict.py')+' --test_path '+os.path.join(temp_folder,'col1.csv')+' --batch_size 16 --checkpoint_dir '+fold_path+' --preds_path '+os.path.join(temp_folder,'preds_col1.csv'))
-    
-    os.system('python '+os.path.join(chemprop_path,'predict.py')+' --test_path '+os.path.join(temp_folder,'col2.csv')+' --batch_size 16 --checkpoint_dir '+fold_path+' --preds_path '+os.path.join(temp_folder,'preds_col2.csv'))
+def evaluate_chemprop_onecol(data, fold_path, save_dir):
+    temp_folder= os.path.join(save_dir, "tmp")
+    os.makedirs(temp_folder, exist_ok=True)
+    filename = os.path.join(temp_folder,'temp.csv')
+    data.to_csv(filename, index=False)
 
-    preds1 = pd.read_csv(os.path.join(temp_folder,'preds_col1.csv'))
-    preds1 = preds1.rename(columns={"0":"Mol1",preds1.columns[1]:"Target1"})
-    preds2 = pd.read_csv(os.path.join(temp_folder,'preds_col2.csv'))
-    preds2 = preds2.rename(columns={"1":"Mol2",preds2.columns[1]:"Target2"})
-    preds_tot = pd.concat((preds1,preds2),axis=1)
+    device = torch.device('cuda')
+    model_path = os.path.join(fold_path, "model.pt")
+    model = load_checkpoint(model_path, device=device)
+    scaler, *_ = load_scalers(model_path)
 
-#     preds_tot = pd.DataFrame()
-#     preds_tot['Mol1'] = smiles1
-#     preds_tot['Target1'] = [x[0] for x in model_preds1]
-#     preds_tot['Mol2'] = smiles2
-#     preds_tot['Target2'] = [x[0] for x in model_preds2]
+    preds = predict(
+                model=model,
+                data_loader=MoleculeDataLoader(
+                    dataset=get_data(
+                        filename, smiles_columns=["Smile"], target_columns=[])),
+                scaler=scaler)
 
-    statistics = sum_statistics(preds_tot)
-    return statistics,preds_tot
+    data['pred'] = np.array(preds).reshape(-1)
 
-def evaluate_chemprop_onecol(data,fold_path,chemprop_path):
-    temp_folder='tmp'
-    if not os.path.isdir(temp_folder):
-        os.mkdir(temp_folder)
-        
-    data.to_csv(os.path.join(temp_folder,'temp.csv'),index=False)
-    os.system('python '+os.path.join(chemprop_path,'predict.py')+' --test_path '+os.path.join(temp_folder,'temp.csv')+' --checkpoint_dir '+fold_path+' --preds_path '+os.path.join(temp_folder,'preds_temp.csv') + ' > /dev/null')
-    preds = pd.read_csv(os.path.join(temp_folder,'preds_temp.csv'))
-    
     return preds
 
-def evaluate_chemprop_sol(decoded_path,solvent,fold_path,chemprop_path):
+def evaluate_chemprop_sol(decoded_path,solvent,fold_path):
+    df: pd.DataFrame = pd.read_csv(decoded_path,header=None,delimiter=' ')
+    df = df.rename(columns={0:'Mol1',1:'Mol2'})
+    decoded_path = decoded_path + ".proc.csv"
+    df['sol'] = solvent
+    df.to_csv(decoded_path, index=False)
 
-    data = pd.read_csv(decoded_path,header=None,delimiter=' ')
-    temp_folder='tmp'
-    if not os.path.isdir(temp_folder):
-        os.mkdir(temp_folder)
-        
-        
-    data['sol'] = solvent
-    data[[0,'sol']].to_csv(os.path.join(temp_folder,'col1.csv'),index=False)
-    data[[1,'sol']].to_csv(os.path.join(temp_folder,'col2.csv'),index=False)
-    
-    os.system('python '+os.path.join(chemprop_path,'predict.py')+' --test_path '+os.path.join(temp_folder,'col1.csv')+' --checkpoint_dir '+fold_path+' --preds_path '+os.path.join(temp_folder,'preds_col1.csv')+' --number_of_molecules 2')
-    
-    os.system('python '+os.path.join(chemprop_path,'predict.py')+' --test_path '+os.path.join(temp_folder,'col2.csv')+' --checkpoint_dir '+fold_path+' --preds_path '+os.path.join(temp_folder,'preds_col2.csv')+' --number_of_molecules 2')
+    device = torch.device('cuda')
+    model_path = os.path.join(fold_path, "model.pt")
+    model = load_checkpoint(model_path, device=device)
+    scaler, *_ = load_scalers(model_path)
 
-    preds1 = pd.read_csv(os.path.join(temp_folder,'preds_col1.csv'))
-    preds1 = preds1.rename(columns={"0":"Mol1",preds1.columns[2]:"Target1"})
-    preds2 = pd.read_csv(os.path.join(temp_folder,'preds_col2.csv'))
-    preds2 = preds2.rename(columns={"1":"Mol2",preds2.columns[2]:"Target2"})
-    preds_tot = pd.concat((preds1,preds2),axis=1)
+    print('Predicting Mol1')
 
-    statistics = sum_statistics(preds_tot)
-    return statistics,preds_tot    
-    
+    preds1 = predict(
+                model=model,
+                data_loader=MoleculeDataLoader(
+                    dataset=get_data(
+                        decoded_path, smiles_columns=["Mol1", "sol"], target_columns=[])),
+                scaler=scaler)
+
+    df['Target1'] = np.array(preds1).reshape(-1)
+
+    print('Predicting Mol2')
+    preds2 = predict(
+                model=model,
+                data_loader=MoleculeDataLoader(
+                    dataset=get_data(
+                        decoded_path, smiles_columns=["Mol2", "sol"], target_columns=[])),
+                scaler=scaler)
+
+    df['Target2'] = np.array(preds2).reshape(-1)
+
+    statistics = sum_statistics(df)
+    return statistics,df

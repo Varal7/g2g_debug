@@ -9,7 +9,7 @@ from g2g_optimization.hgraph import common_atom_vocab
 from g2g_optimization.train.evaluate_chemprop import evaluate_chemprop,evaluate_chemprop_sol
 from g2g_optimization.train.generate_tests import generate_test_sets
 
-lg = rdkit.RDLogger.logger() 
+lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = argparse.ArgumentParser()
@@ -22,14 +22,13 @@ parser.add_argument('--fold_path',default='/predictors/chemprop_aqsol/')
 parser.add_argument('--args_file',type=str, default=None) #Without an args file, many parameters will revert to default
 parser.add_argument('--num_decode',type=int, default=20)
 parser.add_argument('--seed',type=int, default=1)
-parser.add_argument('--chemprop_path',type=str, default='/home/gridsan/cbilod/chemprop')
 parser.add_argument('--solvent',type=str, default=None)
 
 
 args = parser.parse_args()
 
 # You can just input the checkpoint path, this populates everything else:
-    
+
 if args.checkpoint_path !=None:
     args.vocab = os.path.join(args.checkpoint_path,'inputs','vocab.txt')
     args.model = os.path.join(args.checkpoint_path,'models',args.model)
@@ -44,7 +43,7 @@ if args.args_file == None:
     args_file = {}
 else:
     args_file = read_args(args.args_file)
-    
+
 print(args_file['target'])
 # Generate test sets:
 generate_test_sets(os.path.join(args.data_path,'data.csv'),
@@ -59,11 +58,3 @@ for test_set in ['bottom','med_bottom','medium','med_top','top']:
             atom_vocab=common_atom_vocab,
             num_decode=args.num_decode, ## Will not come from run input
             seed=args.seed)
-
-#     if args.solvent == None:
-#         stats,_ = evaluate_chemprop(out_file,fold_path=args.fold_path,chemprop_path=args.chemprop_path)
-#     else:
-#         stats,_ = evaluate_chemprop_sol(out_file,solvent=args.solvent,fold_path=args.fold_path,chemprop_path=args.chemprop_path)
-
-#     with open(out_stats_file, 'wb') as f:
-#         pickle.dump(stats, f, pickle.HIGHEST_PROTOCOL)

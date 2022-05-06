@@ -6,9 +6,9 @@ import os
 from g2g_optimization.train.decode import decode
 from g2g_optimization.train.args import read_args
 from g2g_optimization.hgraph import common_atom_vocab
-from g2g_optimization.train.evaluate_chemprop import evaluate_chemprop
+from g2g_optimization.train.evaluate_chemprop import evaluate_chemprop, evaluate_chemprop_sol
 
-lg = rdkit.RDLogger.logger() 
+lg = rdkit.RDLogger.logger()
 lg.setLevel(rdkit.RDLogger.CRITICAL)
 
 parser = argparse.ArgumentParser()
@@ -22,12 +22,11 @@ parser.add_argument('--fold_path',default='predictors/chemprop_aqsol/')
 parser.add_argument('--args_file',type=str, default=None) #Without an args file, many parameters will revert to default
 parser.add_argument('--num_decode',type=int, default=20)
 parser.add_argument('--seed',type=int, default=1)
-parser.add_argument('--chemprop_path',type=str, default='/data/rsg/chemistry/cbilod/chemprop/')
 parser.add_argument('--solvent',type=str, default=None)
 
 args = parser.parse_args()
 
-    
+
 if args.checkpoint_path !=None:
     args.vocab = os.path.join(args.checkpoint_path,'inputs','vocab.txt')
     args.model = os.path.join(args.checkpoint_path,'models',args.model)
@@ -42,17 +41,17 @@ if args.args_file == None:
     args_file = {}
 else:
     args_file = read_args(args.args_file)
-    
+
 decode(args.test,args.vocab,args.model,args.output_file,args_file,
         atom_vocab=common_atom_vocab,
         num_decode=args.num_decode, ## Will not come from run input
         seed=args.seed)
 
 if args.solvent == None:
-    stats,_ = evaluate_chemprop(args.output_file,fold_path=args.fold_path,chemprop_path=args.chemprop_path)
+    stats,_ = evaluate_chemprop(args.output_file,fold_path=args.fold_path)
 else:
-    stats,_ = evaluate_chemprop_sol(out_file,solvent=args.solvent,fold_path=args.fold_path,chemprop_path=args.chemprop_path)
-    
+    stats,_ = evaluate_chemprop_sol(args.output_file,solvent=args.solvent,fold_path=args.fold_path)
+
 with open(args.stats_file, 'wb') as f:
     pickle.dump(stats, f, pickle.HIGHEST_PROTOCOL)
 

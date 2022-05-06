@@ -35,47 +35,47 @@ def gnn_train(tensor_path,vocab_file,model_dir,args,
               print_iter=50,
               save_iter=-1,
               atom_vocab=common_atom_vocab):
-    
+
     # Read from args dict:
     if 'load_dir' in list(args.keys()):
         load_dir = args['load_dir']
     if 'load_epoch' in list(args.keys()):
-        load_epoch = args['load_epoch']  
+        load_epoch = args['load_epoch']
     if 'rnn_type' in list(args.keys()):
-        rnn_type = args['rnn_type']     
+        rnn_type = args['rnn_type']
     if 'hidden_size' in list(args.keys()):
-        hidden_size = args['hidden_size']     
+        hidden_size = args['hidden_size']
     if 'embed_size' in list(args.keys()):
-        embed_size = args['embed_size']     
+        embed_size = args['embed_size']
     if 'batch_size' in list(args.keys()):
-        batch_size = args['batch_size']  
+        batch_size = args['batch_size']
     if 'latent_size' in list(args.keys()):
-        latent_size = args['latent_size']         
+        latent_size = args['latent_size']
     if 'depthT' in list(args.keys()):
-        depthT = args['depthT']        
+        depthT = args['depthT']
     if 'depthG' in list(args.keys()):
-        depthG = args['depthG'] 
+        depthG = args['depthG']
     if 'diterT' in list(args.keys()):
-        diterT = args['diterT'] 
+        diterT = args['diterT']
     if 'diterG' in list(args.keys()):
-        diterG = args['diterG']          
+        diterG = args['diterG']
     if 'dropout' in list(args.keys()):
         dropout = args['dropout']
     if 'lr' in list(args.keys()):
-        lr = args['lr']        
+        lr = args['lr']
     if 'beta' in list(args.keys()):
         beta = args['beta']
     if 'epoch' in list(args.keys()):
-        epoch = args['epoch'] 
+        epoch = args['epoch']
     if 'anneal_rate' in list(args.keys()):
-        anneal_rate = args['anneal_rate'] 
+        anneal_rate = args['anneal_rate']
     if 'print_iter' in list(args.keys()):
         print_iter = args['print_iter']
     if 'save_iter' in list(args.keys()):
-        save_iter = args['save_iter']     
+        save_iter = args['save_iter']
 
-    
-    vocab = [x.strip("\r\n ").split() for x in open(vocab_file)] 
+
+    vocab = [x.strip("\r\n ").split() for x in open(vocab_file)]
     vocab_file = PairVocab(vocab)
 
     model = HierVGNN(vocab=vocab_file,
@@ -89,7 +89,7 @@ def gnn_train(tensor_path,vocab_file,model_dir,args,
                      depthG=depthG,
                      diterT=diterT,
                      diterG=diterG,
-                     dropout=dropout).cuda() 
+                     dropout=dropout).cuda()
 
 
     for param in model.parameters():
@@ -130,18 +130,18 @@ def gnn_train(tensor_path,vocab_file,model_dir,args,
             loss.backward()
 #             print('Memory Allocation:{},{},{}'.format(torch.cuda.memory_allocated(),torch.cuda.max_memory_allocated(),torch.cuda.memory_allocated()/torch.cuda.max_memory_allocated()))
 #             print(loss)
-            
+
 #             f = open("memory.txt", "a")
 #             f.write(str(total_step)+'    '+ str(torch.cuda.max_memory_allocated())+'\n')
 #             f.close()
-            
-            
-            
+
+
+
             nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
             optimizer.step()
 #             print('Memory Allocation:{},{},{}'.format(torch.cuda.memory_allocated(),torch.cuda.max_memory_allocated(),torch.cuda.memory_allocated()/torch.cuda.max_memory_allocated()))
 
-            
+
 #             print(type(kl_div))
 #             print(type(wacc))
 #             print(type(iacc))
@@ -153,11 +153,11 @@ def gnn_train(tensor_path,vocab_file,model_dir,args,
             iacc = iacc.detach()
             tacc = tacc.detach()
             sacc = sacc.detach()
-            meters = meters + np.array([kl_div, loss.item(), wacc * 100, iacc * 100, tacc * 100, sacc * 100])
+            meters = meters + np.array([kl_div, loss.item(), wacc.cpu() * 100, iacc.cpu() * 100, tacc.cpu() * 100, sacc.cpu() * 100])
             #print('Memory Allocation:{},{},{}'.format(torch.cuda.memory_allocated(),torch.cuda.max_memory_allocated(),torch.cuda.memory_allocated()/torch.cuda.max_memory_allocated()))
             #print(cutorch.getMemoryUsage)
 #             print(torch.cuda.memory_summary)
-            
+
             if total_step % print_iter == 0:
                 meters /= print_iter
                 print("[%d] Beta: %.3f, KL: %.2f, loss: %.3f, Word: %.2f, %.2f, Topo: %.2f, Assm: %.2f, PNorm: %.2f, GNorm: %.2f" % (total_step, beta, meters[0], meters[1], meters[2], meters[3], meters[4], meters[5], param_norm(model), grad_norm(model)))

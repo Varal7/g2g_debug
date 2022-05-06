@@ -14,7 +14,7 @@ import argparse
 
 from rdkit.Chem import RDConfig
 from rdkit import Chem
-sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score')) 
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 import sascorer
 
 from . import common_atom_vocab
@@ -36,10 +36,10 @@ def read_constraints(constraint_file):
 
 def get_index_smiles(index_set,data_set):
     return [data_set[i].smiles for i in index_set]
-            
+
 def drop_dots(df):
     # Removes any molecular entries contianing more than one molecule
-    
+
     return df[df['SMILES'].apply(lambda smiles: (bool(not '.' in smiles)))]
 
 def check_atoms(smiles):
@@ -53,73 +53,73 @@ def check_atoms(smiles):
 
 def drop_unusual_atoms(df):
     # Removes any molecular entries containing atoms not present in the common atom vocab
-    
+
     return df[df['SMILES'].apply(check_atoms)]
 
 def smile2target(smiles,data,target):
     # Takes in smiles list and dataframe containing target data and gives list of targets
-    
+
     targets = []
     for x in smiles:
         targets.append(data[data['SMILES']==x][target].values[0])
     return(targets)
 
-def apply_constraint(df,smiles,constraint,chemprop_path):
+def apply_constraint(df,smiles,constraint,save_dir):
     # smiles is the molecule to be paired, df is the list of possible candidates for pairing
-    
+
     if (constraint['type']=='x')|(constraint['type']=='y'):
         fold_path = constraint['path']
-        df = evaluate_chemprop_onecol(df,fold_path,chemprop_path)
+        df = evaluate_chemprop_onecol(df,fold_path,save_dir)
         if constraint['keep']=='above':
             df = df[df[df.columns[-1]]>constraint['threshold']]
         if constraint['keep']=='below':
             df = df[df[df.columns[-1]]<constraint['threshold']]
         return df[['Smile','Target']]
-    
+
     if (constraint['type']=='diff'):
         fold_path = constraint['path']
-        df = evaluate_chemprop_onecol(df,fold_path,chemprop_path)
+        df = evaluate_chemprop_onecol(df,fold_path,save_dir)
         df_compare = pd.DataFrame()
         df_compare['Smile'] = [smiles]
         print(df_compare)
-        df_compare = evaluate_chemprop_onecol(df_compare,fold_path,chemprop_path)
+        df_compare = evaluate_chemprop_onecol(df_compare,fold_path,save_dir)
         print(df_compare)
         df['diff'] = df[df.columns[-1]]-df_compare[df_compare.columns[-1]].values[0]
-        
+
         if constraint['keep']=='above':
             df = df[df['diff']>constraint['threshold']]
         if constraint['keep']=='below':
             df = df[df['diff']<constraint['threshold']]
         return df[['Smile','Target']]
-    
+
 def apply_sa_constraint(df,cutoff):
     df['sa'] = df['Smile'].apply(lambda x: sascorer.calculateScore(Chem.MolFromSmiles(x)))
     df = df[df['sa']<cutoff]
     return df[['Smile','Target']]
 
-def smile2pairs(smiles, data, chemprop_path, constraints=None,target='Solubility', cutoff= 0.78*2, sample_n=20,sa_constraint=False,sa_cutoff=3.5):
+def smile2pairs(smiles, data, save_dir, constraints=None,target='Solubility', cutoff= 0.78*2, sample_n=20,sa_constraint=False,sa_cutoff=3.5):
     # smiles: list of smiles to be sorted into pairs
     # data: dataframe containing smiles/target data
     # cutoff: minimum target difference between x/y
     # number of times pairs for each x molecule to try to participate in
-    
+
     # Assign all molecules below median target to x category:
     df = pd.DataFrame([{"Smile":x,"Target":y} for x,y in zip(smiles, smile2target(smiles,data,target))])
     med = df['Target'].median()
 
     df_y = df[df['Target']>med]
     df_x = df[df['Target']<=med]
-    
+
 #     if constraints != None:
 #         for key in constraints.keys():
 #             df_x,df_y = apply_constraint(df_x,df_y,constraints[key])
-            
+
     df_x_sorted = df_x.sort_values('Target',ascending=False)
     df_y_sorted = df_y.sort_values('Target',ascending=False)
-    
+
     # above: we can apply different types of constraints: constraints on x, y, y-x, or x&y
     # split here: what goes into the next section is df_x,df_x_sorted,df_y,df_y_sorted
-    
+
     # Assign y molecules for each x molecule:
     assigned_pairs = pd.DataFrame()
     for i in range(0,len(df_x_sorted)):
@@ -127,12 +127,12 @@ def smile2pairs(smiles, data, chemprop_path, constraints=None,target='Solubility
         targetx = df_x_sorted.iloc[i]['Target']
 
         df_y_subset = df_y[(df_y['Target']-df_x_sorted.iloc[i]['Target'])>cutoff]
-        
+
         if constraints != None:
             for key in constraints.keys():
                 if constraints[key]['type'] != 'x':
-                    df_y_subset = apply_constraint(df_y_subset,df_x_sorted.iloc[i]['Smile'],constraints[key],chemprop_path)
-                    
+                    df_y_subset = apply_constraint(df_y_subset,df_x_sorted.iloc[i]['Smile'],constraints[key],save_dir)
+
         if sa_constraint:
             df_y_subset = apply_sa_constraint(df_y_subset,sa_cutoff)
 
@@ -147,9 +147,9 @@ def smile2pairs(smiles, data, chemprop_path, constraints=None,target='Solubility
             assigned_pairs = assigned_pairs.append({'X':smile1,'Y':smile2,'targetx':targetx,'targety':targety},ignore_index=True)
 #             if len(assigned_pairs)%500==0:
 #                 print('{} Pairs Assigned'.format(len(assigned_pairs)))
-                
-    pairs_x = assigned_pairs    
-    
+
+    pairs_x = assigned_pairs
+
     # Assign x molecules for each y molecule:
     assigned_pairs = pd.DataFrame()
     for i in range(0,len(df_y_sorted)):
@@ -157,12 +157,12 @@ def smile2pairs(smiles, data, chemprop_path, constraints=None,target='Solubility
         targety = df_y_sorted.iloc[i]['Target']
 
         df_x_subset = df_x[(df_y_sorted.iloc[i]['Target']-df_x['Target'])>cutoff]
-        
+
         if constraints != None:
             for key in constraints.keys():
                 if constraints[key]['type'] != 'y':
-                    df_x_subset = apply_constraint(df_x_subset,df_y_sorted.iloc[i]['Smile'],constraints[key],chemprop_path)
-                    
+                    df_x_subset = apply_constraint(df_x_subset,df_y_sorted.iloc[i]['Smile'],constraints[key],save_dir)
+
         if sa_constraint:
             df_x_subset = apply_sa_constraint(df_x_subset,sa_cutoff)
 
@@ -178,17 +178,17 @@ def smile2pairs(smiles, data, chemprop_path, constraints=None,target='Solubility
             assigned_pairs = assigned_pairs.append({'X':smile1,'Y':smile2,'targetx':targetx,'targety':targety},ignore_index=True)
 #             if len(assigned_pairs)%500==0:
 #                 print('{} Pairs Assigned'.format(len(assigned_pairs)))
-                
+
     pairs_y = assigned_pairs
 
     pairs_combined = pd.concat((pairs_x,pairs_y)).drop_duplicates()
-    
+
     return pairs_combined
 
 def remove_tails(df,target):
     df_sorted = df.sort_values(target)
     df_notails = df_sorted.iloc[int(len(df_sorted)/8):int(len(df_sorted)*7/8)]
-    
+
     # Return without tails and shuffled:
     return df_notails.sample(frac=1)
 
@@ -200,12 +200,12 @@ def drop_invalid_smiles(df):
             df = df[df['SMILES']!=smile]
     return df
 
-def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=None,adjacency_file=None,target='Solubility',cutoff= 0, sample_n=20,remove_tails_flag=False,sa_constraint=False,sa_cutoff=3.5):
+def generate_pairs(data_file,outfile,molfile,args,save_dir,constraint_file=None,adjacency_file=None,target='Solubility',cutoff= 0, sample_n=20,remove_tails_flag=False,sa_constraint=False,sa_cutoff=3.5):
     if constraint_file != None:
         constraints = read_constraints(constraint_file)
     else:
         constraints = None
-    
+
     # Read from args dict:
     if 'target' in list(args.keys()):
         target = args['target']
@@ -214,9 +214,9 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
     if 'sample_n' in list(args.keys()):
         sample_n = args['sample_n']
     if 'remove_tails_flag' in list(args.keys()):
-        remove_tails_flag = args['remove_tails_flag']    
+        remove_tails_flag = args['remove_tails_flag']
     if 'sa_constraint' in list(args.keys()):
-        sa_constraint = args['sa_constraint']    
+        sa_constraint = args['sa_constraint']
     if 'sa_cutoff' in list(args.keys()):
         sa_cutoff = args['sa_cutoff']
     if 'pairing_method' in list(args.keys()):
@@ -236,12 +236,12 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
     data = drop_unusual_atoms(data)
     data= drop_invalid_smiles(data)
     data= data[['SMILES',target]]
-    
+
     if remove_tails_flag:
         data = remove_tails(data,target)
 
     if pairing_method == 'bemis_murcko':
-        
+
 #         # Generate Dataset object:
 #         data_list = []
 #         for i in range(0,len(data)):
@@ -256,7 +256,7 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
 #         # But by the time we get the the other side of this bloack we have actually lost like 3000 molecules
 
         data_set = MoleculeDataset([MoleculeDatapoint(smiles=[x],targets=y) for x,y in zip(data['SMILES'].values,data[target].values)])
-        scaffold_to_indices = scaffold_to_smiles([x[0] for x in data_set.mols()], use_indices=True)    
+        scaffold_to_indices = scaffold_to_smiles([x[0] for x in data_set.mols()], use_indices=True)
         index_sets = list(scaffold_to_indices.values())
 
         # Generate Pairlist:
@@ -264,6 +264,7 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
         i=0
         smiles_processed = 0
         smiles_in_list = 0
+
 
         print('{} Total Scaffolds'.format(len(index_sets)))
         for index_set in index_sets:
@@ -275,13 +276,13 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
 
             # There must be at least two molecules in the set for a pair to be made:
             if len(smile_list)>1:
-                pairs = smile2pairs(smile_list,data,chemprop_path, constraints,target,cutoff,sample_n,sa_constraint,sa_cutoff)
+                pairs = smile2pairs(smile_list,data,save_dir, constraints,target,cutoff,sample_n,sa_constraint,sa_cutoff)
                 g2g = pd.concat((g2g,pairs),axis=0)
 
                 smiles_processed+=len(smile_list)
                 smiles_in_list=len(set(list(np.reshape(g2g[['X','Y']].to_numpy(),(-1,)))))
     #             print('SMILES PROCESSED = {}'.format(smiles_processed))
-    #             print('SMILES IN LIST = {}'.format(smiles_in_list))            
+    #             print('SMILES IN LIST = {}'.format(smiles_in_list))
             else:
                 print('No pair assignment')
 
@@ -294,18 +295,18 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
 
         g2g[['X','Y']].to_csv(outfile,index=False,header=None,sep=' ')
         mols.to_csv(molfile,index=False,header=None,sep=' ')
-        
-        
+
+
     elif pairing_method == 'tanimoto':
-           
+
         adj = tan_adjacency(data)
 #         if adjacency_file !=None:
 #             pickle.dump( [adj,data], open( adjacency_file, "wb" ) )
-        
+
         labels = adjacency_clusters(adj,n_clusters,threshold)
-        
+
         data['clusters'] = labels
-        
+
         # Generate Pairlist:
         g2g = pd.DataFrame(columns=['X','Y'])
         i=0
@@ -318,9 +319,9 @@ def generate_pairs(data_file,outfile,molfile,args,chemprop_path,constraint_file=
             print('Starting Scaffold {}'.format(i))
             smile_list = list(data[data['clusters']==cluster]['SMILES'].values)
             if len(smile_list)>1:
-                pairs = smile2pairs(smile_list,data,chemprop_path, constraints,target,cutoff,sample_n,sa_constraint,sa_cutoff)
+                pairs = smile2pairs(smile_list,data,save_dir, constraints,target,cutoff,sample_n,sa_constraint,sa_cutoff)
                 g2g = pd.concat((g2g,pairs),axis=0)
-              
+
                 smiles_processed+=len(smile_list)
                 smiles_in_list=len(set(list(np.reshape(g2g[['X','Y']].to_numpy(),(-1,)))))
 

@@ -1,10 +1,17 @@
 ## ARGS FILE g2g_optimization
 
 ## Pair Generation Parameters:
+pairing_method = tanimoto           # bemis_murcko
 target = Solubility                 # Title of column in input file
 cutoff = 0.8                        # Minimum improvement required to pair x with y
 sample_n = 20
 remove_tails = False                # Remove top and bottom 1/8 of distribution
+sa_constraint = False
+sa_cutoff = 3.5
+
+# Optional parameters for pairing tanimoto method
+n_clusters = 20
+#tan_threshold
 
 ## Tensor Generation Parameters:
 batch_size = 16
@@ -25,14 +32,14 @@ dropout = 0.0
 lr = 1e-3
 clip_norm = 20.0
 beta = 0.3
-epoch = 1 #10
+epoch = 12 #10
 anneal_rate = 0.9
 print_iter = 50
 save_iter = -1
-pairing_method = tanimoto
 
 ## Iteration Parameters:
 fold_path = predictors/chemprop_aqsol/    # path to chemprop model associated with target improvement
 min_mol_wt = 50                           # g/mol, lower bound for molecule size
 cutoff_iterations = 0.8                   # Typically equal to the previous cuttoff, minimum improvement required for success
 num_decode = 20                           # number of molecules to use to generate a new, larger dataset
+

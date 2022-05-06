@@ -1,0 +1,10 @@
+*.pyc
+checkpoints/
+data/
+memory.txt
+run.sh
+run_ampep.sh
+save_dir/
+tmp/
+pyrightconfig.json
+
