@@ -20,5 +20,12 @@ parser.add_argument('--starting_iteration',type=int, default=0)
 
 args = parser.parse_args()
 
-run_iterations(args.args_file,args.save_dir,args.data_path,num_iterations=args.n_iterations,constraint_file=args.constraint_file,solvent=args.solvent,starting_iteration=args.starting_iteration)
+run_iterations(args.args_file,
+               args.save_dir,
+               args.data_path,
+               num_iterations=args.n_iterations,
+               constraint_file=args.constraint_file,
+               solvent=args.solvent,
+               starting_iteration=args.starting_iteration,
+            )
 

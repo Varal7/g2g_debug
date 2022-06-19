@@ -25,10 +25,10 @@ def apply_screen(data,col_name,selection_type,selection_thresh,keep):
         elif keep=='Low':
             data = data[data[col_name]<selection_thresh]
         else:
-            print('WARNING: INVALID KEEP TYPE')            
+            print('WARNING: INVALID KEEP TYPE')
     else:
         print('WARNING: INVALID SELECTION TYPE')
-        
+
     return data
 
 def update_dataset(gen_evaluated,
@@ -42,9 +42,9 @@ def update_dataset(gen_evaluated,
                    min_mol_wt=50, #(g/mol)
                    pairing_method='bemis_murcko',
                    n_clusters=None,
-                   tan_threshold=None): 
+                   tan_threshold=None):
 
-    paired = pd.read_csv(gen_evaluated)
+    paired: pd.DataFrame = pd.read_csv(gen_evaluated)
 
     # Remove molecules that do not follow screen 1:
     if screen_file1 is not None:
@@ -65,7 +65,7 @@ def update_dataset(gen_evaluated,
         mol_list = pd.concat((paired[['Mol1']].rename(columns={'Mol1':'SMILES'}),paired[['Mol2']].rename(columns={'Mol2':'SMILES'}))).drop_duplicates()
         adj = tan_adjacency(pd.DataFrame(mol_list))
         labels = adjacency_clusters(adj,n_clusters,threshold)
-        
+
         mol_list['cluster'] = labels
         paired['Scaffold1'] = paired['Mol1'].apply(lambda x: mol_list[mol_list['SMILES']==x]['cluster'].values[0])
         paired['Scaffold2'] = paired['Mol2'].apply(lambda x: mol_list[mol_list['SMILES']==x]['cluster'].values[0])

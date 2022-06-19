@@ -13,8 +13,7 @@ sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 from g2g_optimization.train.metrics import *
 
 def evaluate_chemprop(decoded_path,fold_path):
-    df: pd.DataFrame = pd.read_csv(decoded_path,header=None,delimiter=' ')
-    df = df.rename(columns={0:'Mol1',1:'Mol2'})
+    df: pd.DataFrame = pd.read_csv(decoded_path)
     decoded_path = decoded_path + ".proc.csv"
     df.to_csv(decoded_path, index=False)
 
@@ -70,8 +69,7 @@ def evaluate_chemprop_onecol(data, fold_path, save_dir):
     return preds
 
 def evaluate_chemprop_sol(decoded_path,solvent,fold_path):
-    df: pd.DataFrame = pd.read_csv(decoded_path,header=None,delimiter=' ')
-    df = df.rename(columns={0:'Mol1',1:'Mol2'})
+    df: pd.DataFrame = pd.read_csv(decoded_path)
     decoded_path = decoded_path + ".proc.csv"
     df['sol'] = solvent
     df.to_csv(decoded_path, index=False)

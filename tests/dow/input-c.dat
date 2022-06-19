@@ -43,3 +43,8 @@ min_mol_wt = 50                           # g/mol, lower bound for molecule size
 cutoff_iterations = 0.8                   # Typically equal to the previous cuttoff, minimum improvement required for success
 num_decode = 20                           # number of molecules to use to generate a new, larger dataset
 
+## Python functions
+python_filename = tests/dow/example_custom.py
+filter_df_name = filter_df
+append_features_name = append_features
+merge_chemprop_models_name = merge_chemprop_models
