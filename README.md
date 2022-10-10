@@ -44,5 +44,3 @@ Alternatively, it may be useful to calculate model performance generally on subs
 ```
 python evaluate_chemprop.py --model model.10 --checkpoint_path save_dir --args_file tests/aqsol_short/input.dat --fold_path <path to ChemProp model> 
 ```
-
-

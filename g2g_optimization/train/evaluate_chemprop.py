@@ -12,7 +12,7 @@ sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 
 from g2g_optimization.train.metrics import *
 
-def evaluate_chemprop(decoded_path,fold_path):
+def evaluate_chemprop(decoded_path, fold_path, features_mol1=None, features_mol2=None):
     df: pd.DataFrame = pd.read_csv(decoded_path)
     decoded_path = decoded_path + ".proc.csv"
     df.to_csv(decoded_path, index=False)
@@ -24,21 +24,27 @@ def evaluate_chemprop(decoded_path,fold_path):
 
     print('Predicting Mol1')
 
+    if features_mol1 is not None:
+        features_mol1 = [features_mol1]
+
     preds1 = predict(
                 model=model,
                 data_loader=MoleculeDataLoader(
                     dataset=get_data(
-                        decoded_path, smiles_columns=["Mol1"], target_columns=[])),
+                        decoded_path, smiles_columns=["Mol1"], target_columns=[], features_path=features_mol1)),
                 scaler=scaler)
 
     df['Target1'] = np.array(preds1).reshape(-1)
+
+    if features_mol2 is not None:
+        features_mol2 = [features_mol2]
 
     print('Predicting Mol2')
     preds2 = predict(
                 model=model,
                 data_loader=MoleculeDataLoader(
                     dataset=get_data(
-                        decoded_path, smiles_columns=["Mol2"], target_columns=[])),
+                        decoded_path, smiles_columns=["Mol2"], target_columns=[], features_path=features_mol2)),
                 scaler=scaler)
 
     df['Target2'] = np.array(preds2).reshape(-1)

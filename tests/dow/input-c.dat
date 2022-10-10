@@ -46,5 +46,4 @@ num_decode = 20                           # number of molecules to use to genera
 ## Python functions
 python_filename = tests/dow/example_custom.py
 filter_df_name = filter_df
-append_features_name = append_features
-merge_chemprop_models_name = merge_chemprop_models
+get_features_name = get_features
